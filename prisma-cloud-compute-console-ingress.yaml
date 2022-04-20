@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: console-ingress
+  namespace: twistlock
+  annotations:
+    kubernetes.io/ingress.class: nginx
+    nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      if ($uri = “/console”) {rewrite .* $1/ permanent;}
+    nginx.ingress.kubernetes.io/force-ssl-redirect: “false”
+    nginx.ingress.kubernetes.io/ssl-passthrough: “true”
+spec:
+  rules:
+  - host: twistlock-console.127.0.0.1.sslip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: twistlock-console
+            port:
+              number: 8083
+  ingressClassName: nginx
