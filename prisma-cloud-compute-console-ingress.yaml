@@ -5,16 +5,30 @@ metadata:
   namespace: twistlock
   annotations:
     nginx.ingress.kubernetes.io/backend-protocol: HTTPS
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/ssl-passthrough: "true"
+    nginx.ingress.kubernetes.io/rewrite-target: /$1
+    nginx.ingress.kubernetes.io/proxy-redirect-from: /
+    nginx.ingress.kubernetes.io/proxy-redirect-to: /console/
     nginx.ingress.kubernetes.io/configuration-snippet: |
-      if ($uri = “/console”) {rewrite .* $1/ permanent;}
-    nginx.ingress.kubernetes.io/force-ssl-redirect: “false”
-    nginx.ingress.kubernetes.io/ssl-passthrough: “true”
+      proxy_set_header Accept-Encoding "";
+
+      sub_filter_last_modified off;
+  
+      # add base path to all static resources
+      sub_filter 'href="' 'href="/console/';
+      sub_filter 'src="' 'src="/console/';
+      sub_filter '"/api' '"/console/api';
+  
+      # set types of files to 'sub-filter'
+      sub_filter_once off;
+      sub_filter_types text/html text/css text/javascript;
 spec:
   rules:
   - host: twistlock-console.127.0.0.1.sslip.io
     http:
       paths:
-      - path: /
+      - path: /console/?(.*)
         pathType: Prefix
         backend:
           service:
