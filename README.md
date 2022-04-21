@@ -13,4 +13,4 @@ Then you will be able to launch:
 $ ./create_prisma_cloud_env.sh
 ```
 
-You will then be able to access to Prisma Cloud Compute console from your browser on http://twistlock-console.127.0.0.1.sslip.io/ or https://twistlock-console.127.0.0.1.sslip.io/.
+You will then be able to access to Prisma Cloud Compute console from your browser on http://twistlock-console.127.0.0.1.sslip.io/console/ or https://twistlock-console.127.0.0.1.sslip.io/console/.
