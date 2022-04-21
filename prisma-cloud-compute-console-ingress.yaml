@@ -8,17 +8,13 @@ metadata:
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/ssl-passthrough: "true"
     nginx.ingress.kubernetes.io/rewrite-target: /$1
-    nginx.ingress.kubernetes.io/proxy-redirect-from: /
-    nginx.ingress.kubernetes.io/proxy-redirect-to: /console/
     nginx.ingress.kubernetes.io/configuration-snippet: |
       proxy_set_header Accept-Encoding "";
-
       sub_filter_last_modified off;
   
-      # add base path to all static resources
-      sub_filter 'href="' 'href="/console/';
-      sub_filter 'src="' 'src="/console/';
-      sub_filter '"/api' '"/console/api';
+      # add base path to all resources
+      sub_filter '<base href="/">' '<base href="/console/">';
+      sub_filter '/api/v' '/console/api/v';
   
       # set types of files to 'sub-filter'
       sub_filter_once off;
