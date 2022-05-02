@@ -1,0 +1,215 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: brokencrystals
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name:  local-pv
+  labels:
+    type: local
+spec:
+  storageClassName: manual
+  capacity:
+    storage: 100Mi
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/tmp/k3dvol"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: brokencrystals-db-pvc
+  namespace: brokencrystals
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 100Mi
+  storageClassName: manual
+  volumeMode: Filesystem
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: brokencrystals-db-initdb-config
+  namespace: brokencrystals
+data:
+  pg.sql: |
+    set names 'utf8';
+    set session_replication_role = 'replica';
+    create table "user" ("id" serial primary key, "created_at" timestamptz(0) not null, "updated_at" timestamptz(0) not null, "email" varchar(255) not null, "password" varchar(255) not null, "first_name" varchar(255) not null, "last_name" varchar(255) not null, "is_admin" bool not null, "photo" bytea null);
+    create table "testimonial" ("id" serial primary key, "created_at" timestamptz(0) not null, "updated_at" timestamptz(0) not null, "name" varchar(255) not null, "title" varchar(255) not null, "message" varchar(255) not null);
+    create table "product" ("id" serial primary key, "created_at" timestamptz(0) not null default now(), "category" varchar(255) not null, "photo_url" varchar(255) not null, "name" varchar(255) not null, "description" varchar(255) null);
+    set session_replication_role = 'origin';
+    INSERT INTO "user" (created_at, updated_at, email, password, first_name, last_name, is_admin, photo) VALUES (now(), now(), 'admin', '$2b$10$BBJjmVNNdyEgv7pV/zQR9u/ssIuwZsdDJbowW/Dgp28uws3GmO0Ky', 'admin', 'admin', false, null);
+    INSERT INTO "product" ("category", "photo_url", "name", "description") VALUES ('Healing', '/api/file?path=config/products/crystals/amethyst.jpg&type=image/jpg', 'Amethyst', 'a violet variety of quartz');
+    INSERT INTO "product" ("category", "photo_url", "name", "description") VALUES ('Gemstones', '/api/file?path=config/products/crystals/ruby.jpg&type=image/jpg', 'Ruby', 'an intense heart crystal');
+    INSERT INTO "product" ("category", "photo_url", "name", "description") VALUES ('Healing', '/api/file?path=config/products/crystals/opal.jpg&type=image/jpg', 'Opal', 'the precious stone');
+    INSERT INTO "product" ("category", "photo_url", "name", "description") VALUES ('Jewellery', '/api/file?path=config/products/crystals/sapphire.jpg&type=image/jpg', 'Sapphire', '');
+    INSERT INTO "product" ("category", "photo_url", "name", "description") VALUES ('Healing', '/api/file?path=config/products/crystals/amber.jpg&type=image/jpg', 'Amber', 'fossilized tree resin');
+    INSERT INTO "product" ("category", "photo_url", "name", "description") VALUES ('Jewellery', '/api/file?path=config/products/crystals/emerald.jpg&type=image/jpg', 'Emerald', 'symbol of fertility and life');
+    INSERT INTO "product" ("category", "photo_url", "name", "description") VALUES ('Jewellery', '/api/file?path=config/products/crystals/shattuckite.jpg&type=image/jpg', 'Shattuckite', 'mistery');
+    INSERT INTO "product" ("category", "photo_url", "name", "description") VALUES ('Gemstones', '/api/file?path=config/products/crystals/bismuth.jpg&type=image/jpg', 'Bismuth', 'rainbow');
+    CREATE INDEX IF NOT EXISTS "IDX_users_email" ON "user" ("email");
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: brokencrystals-postgres
+  namespace: brokencrystals
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: brokencrystals-postgres
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: brokencrystals-postgres
+    spec:
+      containers:
+      - env:
+        - name: POSTGRES_DB
+          value: bc
+        - name: POSTGRES_USER
+          value: bc
+        - name: POSTGRES_PASSWORD
+          value: bc
+        image: postgres:10-alpine
+        imagePullPolicy: IfNotPresent
+        name: postgres
+        ports:
+        - containerPort: 5432
+          protocol: TCP
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+        volumeMounts:
+        - mountPath: /docker-entrypoint-initdb.d
+          name: postgres-initdb
+        - mountPath: /var/lib/postgresql
+          name: postgres-storage
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      terminationGracePeriodSeconds: 30
+      volumes:
+      - name: postgres-initdb
+        configMap:
+          name: brokencrystals-db-initdb-config
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: brokencrystals-db-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: brokencrystals-postgres
+  namespace: brokencrystals
+spec:
+  ports:
+  - port: 5432
+    protocol: TCP
+    targetPort: 5432
+  selector:
+    app: brokencrystals-postgres
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: brokencrystals
+  namespace: brokencrystals
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: brokencrystals-app
+  namespace: brokencrystals
+spec:
+  progressDeadlineSeconds: 600
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: brokencrystals-app
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: brokencrystals-app
+    spec:
+      containers:
+      - env:
+        - name: DATABASE_HOST
+          value: brokencrystals-postgres
+        - name: DATABASE_PASSWORD
+          value: bc
+        image: neuralegion/brokencrystals:latest
+        imagePullPolicy: IfNotPresent
+        name: nodejs
+        ports:
+        - containerPort: 9080
+          protocol: TCP
+        terminationMessagePath: /dev/termination-log
+        terminationMessagePolicy: File
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      schedulerName: default-scheduler
+      serviceAccount: brokencrystals
+      serviceAccountName: brokencrystals
+      terminationGracePeriodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: brokencrystals-app
+  name: brokencrystals-app
+  namespace: brokencrystals
+spec:
+  ports:
+  - name: http
+    port: 3000
+    protocol: TCP
+    targetPort: 3000
+  selector:
+    app: brokencrystals-app
+  sessionAffinity: None
+  type: ClusterIP
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: brokencrystals-ingress
+  namespace: brokencrystals
+spec:
+  rules:
+  - host: brokencrystals.127.0.0.1.sslip.io
+    http:
+      paths:
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: brokencrystals-app
+            port:
+              number: 3000
+  ingressClassName: nginx
+
+

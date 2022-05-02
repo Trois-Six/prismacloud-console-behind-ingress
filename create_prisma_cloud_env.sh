@@ -30,7 +30,14 @@ esac
 #
 
 k3d cluster delete prismacloud
-k3d cluster create prismacloud --wait --k3s-arg "--no-deploy=traefik@server:*" --port 80:80@loadbalancer --port 443:443@loadbalancer --volume "$(pwd)/helm-install-ingress-nginx.yaml:/var/lib/rancher/k3s/server/manifests/helm-install-ingress-nginx.yaml"
+mkdir -p /tmp/k3dvol
+k3d cluster create prismacloud \
+    --wait \
+    --k3s-arg "--no-deploy=traefik@server:*" \
+    --port 80:80@loadbalancer \
+    --port 443:443@loadbalancer \
+    --volume "$(pwd)/helm-install-ingress-nginx.yaml:/var/lib/rancher/k3s/server/manifests/helm-install-ingress-nginx.yaml" \
+    --volume /tmp/k3dvol:/tmp/k3dvol
 
 #
 # Install Prisma Cloud Console
