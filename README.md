@@ -41,7 +41,7 @@ Apply the manifest: `kubectl apply -f defender.yml`. You should now have a worki
 
 If you get the error:
 ```bash
-$ kubectl logs -n twistlock -l app=twistlock-defender                                  ✔  system 
+$ kubectl logs -n twistlock -l app=twistlock-defender
  ERRO 2022-05-03T13:12:56.335 defender.go:932  Failed to start runc proxy listen unix /var/run/tw.runc.sock: bind: read-only file system
 ```
 
