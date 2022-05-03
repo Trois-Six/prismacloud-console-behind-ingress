@@ -2,8 +2,8 @@
 
 ACCESS_TOKEN="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 
-if ! command -v k3d &> /dev/null; then
-    echo "k3d could not be found"
+if ! command -v kind &> /dev/null; then
+    echo "kind could not be found"
     exit
 fi
 
@@ -26,18 +26,35 @@ case "$OSTYPE" in
 esac
 
 #
-# Create K3d Kubernetes cluster and install Nginx ingress controller
+# Create KIND Kubernetes cluster and install Nginx ingress controller
 #
 
-k3d cluster delete prismacloud
-mkdir -p /tmp/k3dvol
-k3d cluster create prismacloud \
-    --wait \
-    --k3s-arg "--no-deploy=traefik@server:*" \
-    --port 80:80@loadbalancer \
-    --port 443:443@loadbalancer \
-    --volume "$(pwd)/helm-install-ingress-nginx.yaml:/var/lib/rancher/k3s/server/manifests/helm-install-ingress-nginx.yaml" \
-    --volume /tmp/k3dvol:/tmp/k3dvol
+kind delete cluster --name prismacloud
+cat <<EOF | kind create cluster --config=-
+kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+name: prismacloud
+nodes:
+- role: control-plane
+  kubeadmConfigPatches:
+  - |
+    kind: InitConfiguration
+    nodeRegistration:
+      kubeletExtraArgs:
+        node-labels: "ingress-ready=true"
+  extraPortMappings:
+  - containerPort: 80
+    hostPort: 80
+    protocol: TCP
+  - containerPort: 443
+    hostPort: 443
+    protocol: TCP
+EOF
+kubectl apply -f https://raw.githubusercontent.com/kubernetes/ingress-nginx/main/deploy/static/provider/kind/deploy.yaml
+kubectl wait --namespace ingress-nginx \
+  --for=condition=ready pod \
+  --selector=app.kubernetes.io/component=controller \
+  --timeout=-1s
 
 #
 # Install Prisma Cloud Console
